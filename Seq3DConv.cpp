@@ -21,7 +21,7 @@ void SeqConvolution::convSetup()
 
     switch(datatype)
     {
-        case dataType::INT:
+        case dataType::TYPE_INT:
         {
             std::vector<std::vector<std::vector<int>>> imgMatrix(inDepth, std::vector<std::vector<int>>(inHeight, std::vector<int>(inWidth)));
             readFile.readMatrixFromFile<int>(inFilename, inHeight, inWidth, inDepth, imgMatrix);
@@ -34,24 +34,55 @@ void SeqConvolution::convSetup()
             Convolution3D<int>(imgMatrix, kernelMatrix, outputMatrix, outFile);
             time = clock() - time;
             std::cout << "Time = " << time << " ms" << std::endl;
-
+        
+            std::cout << "Writing output to file" << std::endl;
+            std::ofstream file(outFile);
+            for(int i=0; i<inDepth; i++)
+            {
+            for(int j=0; j<inHeight; j++)
+            {
+            for(int k=0; k<inWidth; k++)
+            {
+                file<<outputMatrix[i][j][k]<<" ";
+            }
+                file<<std::endl;
+            }
+                file<<std::endl;
+            }
+            file.close();
 
             break;
         }
 
-        case dataType::DOUBLE:
+        case dataType::TYPE_FLOAT:
         {
-            std::vector<std::vector<std::vector<double>>> imgMatrix(inDepth, std::vector<std::vector<double>>(inHeight, std::vector<double>(inWidth)));
-            readFile.readMatrixFromFile<double>(inFilename, inHeight, inWidth, inDepth, imgMatrix);
-            std::vector<std::vector<std::vector<double>>> kernelMatrix(kDepth, std::vector<std::vector<double>>(kHeight, std::vector<double>(kWidth)));
-            readFile.readMatrixFromFile<double>(kFilename, kHeight, kWidth, kDepth, kernelMatrix);
+            std::vector<std::vector<std::vector<float>>> imgMatrix(inDepth, std::vector<std::vector<float>>(inHeight, std::vector<float>(inWidth)));
+            readFile.readMatrixFromFile<float>(inFilename, inHeight, inWidth, inDepth, imgMatrix);
+            std::vector<std::vector<std::vector<float>>> kernelMatrix(kDepth, std::vector<std::vector<float>>(kHeight, std::vector<float>(kWidth)));
+            readFile.readMatrixFromFile<float>(kFilename, kHeight, kWidth, kDepth, kernelMatrix);
             
-            std::vector<std::vector<std::vector<double>>> outputMatrix(inDepth, std::vector<std::vector<double>>(inHeight, std::vector<double>(inWidth)));
+            std::vector<std::vector<std::vector<float>>> outputMatrix(inDepth, std::vector<std::vector<float>>(inHeight, std::vector<float>(inWidth)));
             std::cout << "Convolve" << std::endl;
             clock_t time = clock();
-            Convolution3D<double>(imgMatrix, kernelMatrix, outputMatrix, outFile);
+            Convolution3D<float>(imgMatrix, kernelMatrix, outputMatrix, outFile);
             time = clock() - time;
             std::cout << "Time = " << time << " ms" << std::endl;
+        
+            std::cout << "Writing output to file" << std::endl;
+            std::ofstream file(outFile);
+            for(int i=0; i<inDepth; i++)
+            {
+            for(int j=0; j<inHeight; j++)
+            {
+            for(int k=0; k<inWidth; k++)
+            {
+                file<<outputMatrix[i][j][k]<<" ";
+            }
+                file<<std::endl;
+            }
+                file<<std::endl;
+            }
+            file.close();
 
             break;
         }
@@ -66,8 +97,6 @@ void SeqConvolution::Convolution3D(const std::vector<std::vector<std::vector<T>>
     int padDepth = (kDepth-1)/2;
     int padHeight = (kHeight-1)/2;
     int padWidth = (kWidth-1)/2;
-
-    std::cout << "padded height = " << padHeight << ", padded width = " << padWidth << std::endl;
 
     for(int i=0; i<inDepth; ++i)
     {
@@ -98,27 +127,11 @@ void SeqConvolution::Convolution3D(const std::vector<std::vector<std::vector<T>>
             }
         }
     }
-
-    std::ofstream file(outFile);
-    for(int i=0; i<inDepth; i++)
-    {
-    for(int j=0; j<inHeight; j++)
-    {
-    for(int k=0; k<inWidth; k++)
-    {
-        file<<outputMatrix[i][j][k]<<" ";
-    }
-        file<<std::endl;
-    }
-        file<<std::endl;
-    }
-    file.close();
 }
 
 int main(int argc, char *argv[])
 {
     SeqConvolution conv;
     conv.setData(argv[1], std::stoi(argv[2]), std::stoi(argv[3]), std::stoi(argv[4]), argv[5], std::stoi(argv[6]), std::stoi(argv[7]), std::stoi(argv[8]), argv[9]);
-    conv.convSetup();
-    //int datatype = std::stoi(argv[10]);  
+    conv.convSetup(); 
 }
