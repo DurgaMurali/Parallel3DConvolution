@@ -1,6 +1,6 @@
 #pragma OPENCL EXTENSION cl_intel_printf : enable
 
-__kernel void convolution3D_integer(__global const int *inputBuffer, __global const int *kernelBuffer, __global int *outputBuffer, int kDepth, int kHeight, int kWidth)
+__kernel void convolution3D_integer(__global const int *inputBuffer, __global const int *kernelBuffer, __global int *outputBuffer, const int kDepth, const int kHeight, const int kWidth)
 {
     int col = get_global_id(0);
     int row = get_global_id(1);
@@ -35,6 +35,5 @@ __kernel void convolution3D_integer(__global const int *inputBuffer, __global co
     }
 
     int outIndex = slice*inHeight*inWidth + row*inWidth + col;
-    //printf("slice = %d, row = %d, col = %d, index = %d, input = %d, sum = %d\n", slice, row, col, outIndex, inputBuffer[outIndex], sum);
     outputBuffer[outIndex] = sum;
 }

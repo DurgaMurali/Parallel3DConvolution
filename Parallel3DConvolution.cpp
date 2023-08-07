@@ -1,19 +1,6 @@
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #include "Parallel3DConvolution.h"
 
-void openCL3DConvolution::setData(std::string inFilename, int inHeight, int inWidth, int inDepth, std::string kFilename, int kHeight, int kWidth, int kDepth, std::string outFile)
-{
-    this->inFilename = inFilename;
-    this->inHeight = inHeight;
-    this->inWidth = inWidth;
-    this->inDepth = inDepth;
-    this->kFilename = kFilename;
-    this->kHeight = kHeight;
-    this->kWidth = kWidth;
-    this->kDepth = kDepth;
-    this->outFile = outFile;
-}
-
 void openCL3DConvolution::kernelSetup(cl_platform_id *platform, cl_device_id *device, cl_context *context, cl_command_queue *queue, cl_program *program, cl_kernel *kernel, std::string &kernelFileName, std::string &kernelName)
 {
     std::string kernelFile = readKernel(kernelFileName);
@@ -27,6 +14,7 @@ void openCL3DConvolution::kernelSetup(cl_platform_id *platform, cl_device_id *de
     *queue = clCreateCommandQueue(*context, *device, 0, &errorCode);
     *program = clCreateProgramWithSource(*context, 1, &kernelSource, &sourceSize, &errorCode);
     errorCode = clBuildProgram(*program, 1, device, NULL, NULL, NULL);
+    std::cout << "Build program = " << errorCode << std::endl;
 
     size_t logSize = 1000;
     char *errorLog = new char[logSize];
@@ -46,7 +34,8 @@ void openCL3DConvolution::executeKernel(cl_command_queue *queue, cl_kernel *kern
     errorCode = clSetKernelArg(*kernel, 4, sizeof(int), &kHeight);
     errorCode = clSetKernelArg(*kernel, 5, sizeof(int), &kWidth);
     
-    std::cout << "Convolve" << std::endl;
+    size_t workGroupSize = 80;
+    //std::cout << "Convolve" << std::endl;
     size_t globalSize[3] = {static_cast<size_t>(inWidth), static_cast<size_t>(inHeight), static_cast<size_t>(inDepth)};
     errorCode = clEnqueueNDRangeKernel(*queue, *kernel, 3, NULL, globalSize, NULL, 0, NULL, NULL);
 
@@ -93,6 +82,7 @@ void openCL3DConvolution::setup()
 
             cl_int value = clFlush(*queue);
             value = clFinish(*queue);
+            
             time = clock() - time;
             std::cout << "Kernel Setup and Input data tranfer time = " << time << " ms" << std::endl;
 
@@ -143,8 +133,6 @@ void openCL3DConvolution::setup()
             std::cout << "Kernel execution time = " << time << " ms" << std::endl;
 
             float *outputMatrix = new float[inDepth*inHeight*inWidth];
-            for(int i=0; i<inDepth*inHeight*inWidth; ++i)
-                outputMatrix[i] = 0.0;
 
             value = clEnqueueReadBuffer(*queue, outputBuffer, CL_TRUE, 0, sizeof(float)*inDepth*inHeight*inWidth, outputMatrix, 0, NULL, NULL);
             value = clFlush(*queue);
@@ -191,7 +179,7 @@ std::string openCL3DConvolution::readKernel(std::string fileName)
 template <typename T>
 void openCL3DConvolution::writeToFile(const T* outputMatrix)
 {
-    std::cout << "Writing output to file" << std::endl;
+    //std::cout << "Writing output to file" << std::endl;
     std::ofstream file(outFile);
     for(int i=0; i<inDepth; i++)
     {
@@ -210,6 +198,7 @@ void openCL3DConvolution::writeToFile(const T* outputMatrix)
 
 int main(int argc, char *argv[])
 {
+    std::cout << "Opencl Convolution" << std::endl;
     openCL3DConvolution conv;
     conv.setData(argv[1], std::stoi(argv[2]), std::stoi(argv[3]), std::stoi(argv[4]), argv[5], std::stoi(argv[6]), std::stoi(argv[7]), std::stoi(argv[8]), argv[9]);
     conv.setup();

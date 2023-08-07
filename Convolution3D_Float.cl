@@ -1,6 +1,6 @@
 #pragma OPENCL EXTENSION cl_intel_printf : enable
 
-__kernel void convolution3D_float(__global const float *inputBuffer, __global const float *kernelBuffer, __global float *outputBuffer, int kDepth, int kHeight, int kWidth)
+__kernel void convolution3D_float(__global const float *inputBuffer, __global const float *kernelBuffer, __global float *outputBuffer, const int kDepth, const int kHeight, const int kWidth)
 {
     int col = get_global_id(0);
     int row = get_global_id(1);

@@ -3,6 +3,7 @@
 
 int main(int argc, char *argv[])
 {
+    std::cout << "Multithreaded Convolution" << std::endl;
     MultiThreaded3DConvolution conv;
     conv.setData(argv[1], std::stoi(argv[2]), std::stoi(argv[3]), std::stoi(argv[4]), argv[5], std::stoi(argv[6]), std::stoi(argv[7]), std::stoi(argv[8]), argv[9], std::stoi(argv[10]));
     conv.setup();
@@ -10,15 +11,7 @@ int main(int argc, char *argv[])
 
 void MultiThreaded3DConvolution::setData(std::string inFilename, int inHeight, int inWidth, int inDepth, std::string kFilename, int kHeight, int kWidth, int kDepth, std::string outFile, int numThreads)
 {
-    this->inFilename = inFilename;
-    this->inHeight = inHeight;
-    this->inWidth = inWidth;
-    this->inDepth = inDepth;
-    this->kFilename = kFilename;
-    this->kHeight = kHeight;
-    this->kWidth = kWidth;
-    this->kDepth = kDepth;
-    this->outFile = outFile;
+    Convolution::setData(inFilename, inHeight, inWidth, inDepth, kFilename, kHeight, kWidth, kDepth, outFile);
     this->numThreads = numThreads;
 }
 
@@ -29,21 +22,6 @@ void MultiThreaded3DConvolution::setup()
 
     switch(datatype)
     {
-        case dataType::TYPE_INT:
-        {
-            std::vector<std::vector<std::vector<int>>> imgMatrix(inDepth, std::vector<std::vector<int>>(inHeight, std::vector<int>(inWidth)));
-            readFile.readMatrixFromFile<int>(inFilename, inHeight, inWidth, inDepth, imgMatrix);
-            std::vector<std::vector<std::vector<int>>> kernelMatrix(kDepth, std::vector<std::vector<int>>(kHeight, std::vector<int>(kWidth)));
-            readFile.readMatrixFromFile<int>(kFilename, kHeight, kWidth, kDepth, kernelMatrix);
-
-            std::vector<std::vector<std::vector<int>>> outputMatrix(inDepth, std::vector<std::vector<int>>(inHeight, std::vector<int>(inWidth)));
-            std::cout << "Convolve" << std::endl;
-            
-             createThreads(&imgMatrix, &kernelMatrix, &outputMatrix);
-
-            break;
-        }
-
         case dataType::TYPE_FLOAT:
         {
             std::vector<std::vector<std::vector<float>>> imgMatrix(inDepth, std::vector<std::vector<float>>(inHeight, std::vector<float>(inWidth)));
@@ -52,69 +30,73 @@ void MultiThreaded3DConvolution::setup()
             readFile.readMatrixFromFile<float>(kFilename, kHeight, kWidth, kDepth, kernelMatrix);
             
             std::vector<std::vector<std::vector<float>>> outputMatrix(inDepth, std::vector<std::vector<float>>(inHeight, std::vector<float>(inWidth)));
-            std::cout << "Convolve" << std::endl;
+            //std::cout << "Convolve" << std::endl;
             
             createThreads(&imgMatrix, &kernelMatrix, &outputMatrix);
+            writeToFile<float>(outputMatrix);
 
             break;
         }
-         
+          
+        case dataType::TYPE_INT:
+        {
+            std::vector<std::vector<std::vector<int>>> imgMatrix(inDepth, std::vector<std::vector<int>>(inHeight, std::vector<int>(inWidth)));
+            readFile.readMatrixFromFile<int>(inFilename, inHeight, inWidth, inDepth, imgMatrix);
+            std::vector<std::vector<std::vector<int>>> kernelMatrix(kDepth, std::vector<std::vector<int>>(kHeight, std::vector<int>(kWidth)));
+            readFile.readMatrixFromFile<int>(kFilename, kHeight, kWidth, kDepth, kernelMatrix);
+
+            std::vector<std::vector<std::vector<int>>> outputMatrix(inDepth, std::vector<std::vector<int>>(inHeight, std::vector<int>(inWidth)));
+            //std::cout << "Convolve" << std::endl;
+            
+            createThreads(&imgMatrix, &kernelMatrix, &outputMatrix);
+            writeToFile<int>(outputMatrix);
+
+            break;
+        }
     }
 }
 
 void MultiThreaded3DConvolution::createThreads(const std::vector<std::vector<std::vector<int>>> *imgMatrix, const std::vector<std::vector<std::vector<int>>> *kernelMatrix, std::vector<std::vector<std::vector<int>>> *outputMatrix)
 {
-    int factor = inWidth/numThreads;
-    std::cout << "Thread count = " << numThreads << ", factor = "<< factor <<std::endl;
+    int factor_w = inWidth/numThreads;
+    int factor_h = inHeight/numThreads;
+    int threads_h = numThreads;
+    int threads_w = numThreads;
+    
+    if(inHeight%numThreads != 0)
+        threads_h++;
+    
+    if(inWidth%numThreads != 0)
+        threads_w++;
 
-    for(int i=0; i<numThreads; ++i)
+    std::cout << "Thread count = " << numThreads << ", factor_h = "<< factor_h << ", factor_w = " << factor_w << ", threads_h = " << threads_h << ", threads_w = " << threads_w << std::endl;
+    clock_t time = clock();
+
+    for(int i=0; i<threads_h; ++i)
     {
-        pthread_t threads[numThreads];
-        threadArgs_I t_arg[numThreads];
-        for (int j=0; j<numThreads; ++j)
-        {
-            int startRowIndex = i * factor;
-            int startColIndex = j * factor;
+        int startRowIndex = i * factor_h;
+        int endRowIndex = startRowIndex + factor_h;
+        if(i == threads_h-1)
+            endRowIndex = inHeight;
 
-            t_arg[j] = createThreadArgs(imgMatrix, kernelMatrix, outputMatrix, startRowIndex, startColIndex, factor);
+        pthread_t threads[threads_w];
+        threadArgs_I t_arg[threads_w];
+
+        for (int j=0; j<threads_w; ++j)
+        {
+            int startColIndex = j * factor_w;
+            int endColIndex = startColIndex + factor_w;
+            if(j == threads_w-1)
+                endColIndex = inWidth;
+
+            t_arg[j] = createThreadArgs(imgMatrix, kernelMatrix, outputMatrix, startRowIndex, endRowIndex, startColIndex, endColIndex);
 
             if(pthread_create(&threads[j], NULL, MultiThreaded3DConvolution::Threaded3DConvolution_I, &t_arg[j]) != 0)
                 std::cout << "Error creating thread " << j << std::endl;
 
         }
 
-        for(int j=0; j<numThreads; ++j)
-        {
-            if(pthread_join(threads[j], NULL) != 0)
-                std::cout << "Error in thread join " << j << std::endl;
-        }
-    }
-}
-
-void MultiThreaded3DConvolution::createThreads(const std::vector<std::vector<std::vector<float>>> *imgMatrix, const std::vector<std::vector<std::vector<float>>> *kernelMatrix, std::vector<std::vector<std::vector<float>>> *outputMatrix)
-{
-    int factor = inWidth/numThreads;
-    std::cout << "Thread count = " << numThreads << ", factor = "<< factor <<std::endl;
-    clock_t time = clock();
-
-    for(int i=0; i<numThreads; ++i)
-    {
-        pthread_t threads[numThreads];
-        threadArgs_D t_arg[numThreads];
-        for (int j=0; j<numThreads; ++j)
-        {
-            int startRowIndex = i * factor;
-            int startColIndex = j * factor;
-
-            t_arg[j] = createThreadArgs(imgMatrix, kernelMatrix, outputMatrix, startRowIndex, startColIndex, factor);
-
-            
-            if(pthread_create(&threads[j], NULL, MultiThreaded3DConvolution::Threaded3DConvolution_F, &t_arg[j]) != 0)
-                std::cout << "Error creating thread " << j << std::endl;
-
-        }
-
-        for(int j=0; j<numThreads; ++j)
+        for(int j=0; j<threads_w; ++j)
         {
             if(pthread_join(threads[j], NULL) != 0)
                 std::cout << "Error in thread join " << j << std::endl;
@@ -122,25 +104,70 @@ void MultiThreaded3DConvolution::createThreads(const std::vector<std::vector<std
     }
     time = clock() - time;
     std::cout << "Time = " << time << " ms" << std::endl;
+}
 
-    std::cout << "Writing output to file" << std::endl;
-    std::ofstream file(outFile);
-    for(int i=0; i<inDepth; i++)
+void MultiThreaded3DConvolution::createThreads(const std::vector<std::vector<std::vector<float>>> *imgMatrix, const std::vector<std::vector<std::vector<float>>> *kernelMatrix, std::vector<std::vector<std::vector<float>>> *outputMatrix)
+{
+    int factor_w = inWidth/numThreads;
+    int factor_h = inHeight/numThreads;
+    int threads_h = numThreads;
+    int threads_w = numThreads;
+
+    if(inHeight%numThreads != 0)
+        threads_h++;
+    
+    if(inWidth%numThreads != 0)
+        threads_w++;
+    
+    std::cout << "Thread count = " << numThreads << ", factor_h = "<< factor_h << ", factor_w = " << factor_w << ", threads_h = " << threads_h << ", threads_w = " << threads_w << std::endl;
+    clock_t time = clock();
+
+    pthread_t threads[threads_w*threads_h];
+    threadArgs_D t_arg[threads_w*threads_h];
+
+    for(int i=0; i<threads_h; ++i)
     {
-        for(int j=0; j<inHeight; ++j)
+        int startRowIndex = i * factor_h;
+        int endRowIndex = startRowIndex + factor_h;
+        if(i == threads_h-1)
+            endRowIndex = inHeight;
+
+        //pthread_t threads[threads_w];
+        //threadArgs_D t_arg[threads_w];
+        for (int j=0; j<threads_w; ++j)
         {
-            for(int k=0; k<inWidth; ++k)
-            {
-                file << (*outputMatrix)[i][j][k] << " ";
-            }
-            file << std::endl;
+            int startColIndex = j * factor_w;
+            int endColIndex = startColIndex + factor_w;
+            if(j == threads_w-1)
+                endColIndex = inWidth;
+
+            int thread_index = i*threads_h + j; 
+            t_arg[thread_index] = createThreadArgs(imgMatrix, kernelMatrix, outputMatrix, startRowIndex, endRowIndex, startColIndex, endColIndex);
+            
+            if(pthread_create(&threads[thread_index], NULL, MultiThreaded3DConvolution::Threaded3DConvolution_F, &t_arg[thread_index]) != 0)
+                std::cout << "Error creating thread " << j << std::endl;
+
         }
-        file << std::endl;
+
+        /*for(int j=0; j<threads_w; ++j)
+        {
+            if(pthread_join(threads[j], NULL) != 0)
+                std::cout << "Error in thread join " << j << std::endl;
+        }*/
     }
+
+    for(int j=0; j<threads_w*threads_h; ++j)
+    {
+        if(pthread_join(threads[j], NULL) != 0)
+            std::cout << "Error in thread join " << j << std::endl;
+    }
+
+    time = clock() - time;
+    std::cout << "Time = " << time << " ms" << std::endl;
 }
 
 
-threadArgs_I MultiThreaded3DConvolution::createThreadArgs(const std::vector<std::vector<std::vector<int>>> *imgMatrix, const std::vector<std::vector<std::vector<int>>> *kernelMatrix, std::vector<std::vector<std::vector<int>>> *outputMatrix, int startRowIndex, int startColIndex, int factor)
+threadArgs_I MultiThreaded3DConvolution::createThreadArgs(const std::vector<std::vector<std::vector<int>>> *imgMatrix, const std::vector<std::vector<std::vector<int>>> *kernelMatrix, std::vector<std::vector<std::vector<int>>> *outputMatrix, int startRowIndex, int endRowIndex, int startColIndex, int endColIndex)
 {
     threadArgs_I t_arg;
     t_arg.kDepth = kDepth;
@@ -150,8 +177,9 @@ threadArgs_I MultiThreaded3DConvolution::createThreadArgs(const std::vector<std:
     t_arg.inHeight = inHeight;
     t_arg.inWidth = inWidth;
     t_arg.startRowIndex = startRowIndex;
+    t_arg.endRowIndex = endRowIndex;
     t_arg.startColIndex = startColIndex;
-    t_arg.factor = factor;
+    t_arg.endColIndex = endColIndex;
     t_arg.imgMatrix = imgMatrix;
     t_arg.kernelMatrix = kernelMatrix;
     t_arg.outputMatrix = outputMatrix;
@@ -159,7 +187,7 @@ threadArgs_I MultiThreaded3DConvolution::createThreadArgs(const std::vector<std:
     return t_arg;
 }
 
-threadArgs_D MultiThreaded3DConvolution::createThreadArgs(const std::vector<std::vector<std::vector<float>>> *imgMatrix, const std::vector<std::vector<std::vector<float>>> *kernelMatrix, std::vector<std::vector<std::vector<float>>> *outputMatrix, int startRowIndex, int startColIndex, int factor)
+threadArgs_D MultiThreaded3DConvolution::createThreadArgs(const std::vector<std::vector<std::vector<float>>> *imgMatrix, const std::vector<std::vector<std::vector<float>>> *kernelMatrix, std::vector<std::vector<std::vector<float>>> *outputMatrix, int startRowIndex, int endRowIndex, int startColIndex, int endColIndex)
 {
     threadArgs_D t_arg;
     t_arg.kDepth = kDepth;
@@ -169,8 +197,9 @@ threadArgs_D MultiThreaded3DConvolution::createThreadArgs(const std::vector<std:
     t_arg.inHeight = inHeight;
     t_arg.inWidth = inWidth;
     t_arg.startRowIndex = startRowIndex;
+    t_arg.endRowIndex = endRowIndex;
     t_arg.startColIndex = startColIndex;
-    t_arg.factor = factor;
+    t_arg.endColIndex = endColIndex;
     t_arg.imgMatrix = imgMatrix;
     t_arg.kernelMatrix = kernelMatrix;
     t_arg.outputMatrix = outputMatrix;
@@ -189,14 +218,15 @@ void* MultiThreaded3DConvolution::Threaded3DConvolution_I(void* arg)
     int inDepth = t_args->inDepth;
     int inHeight = t_args->inHeight;
     int inWidth = t_args->inWidth;
-    int startRowIndex = t_args->startRowIndex; 
+    int startRowIndex = t_args->startRowIndex;
+    int endRowIndex = t_args->endRowIndex;
     int startColIndex = t_args->startColIndex;
-    int factor = t_args->factor;
+    int endColIndex = t_args->endColIndex;
 
     const std::vector<std::vector<std::vector<int>>> *imgMatrix = t_args->imgMatrix;
     const std::vector<std::vector<std::vector<int>>> *kernelMatrix = t_args->kernelMatrix;
     std::vector<std::vector<std::vector<int>>> *outputMatrix = t_args->outputMatrix;
-    Convolution3D<int>(imgMatrix, kernelMatrix, outputMatrix, kDepth, kHeight, kWidth, inDepth, inHeight, inWidth, startRowIndex, startColIndex, factor);
+    Convolution3D<int>(imgMatrix, kernelMatrix, outputMatrix, kDepth, kHeight, kWidth, inDepth, inHeight, inWidth, startRowIndex, endRowIndex, startColIndex, endColIndex);
 
     return NULL;
 }
@@ -211,20 +241,21 @@ void* MultiThreaded3DConvolution::Threaded3DConvolution_F(void* arg)
     int inDepth = t_args->inDepth;
     int inHeight = t_args->inHeight;
     int inWidth = t_args->inWidth;
-    int startRowIndex = t_args->startRowIndex; 
+    int startRowIndex = t_args->startRowIndex;
+    int endRowIndex = t_args->endRowIndex;
     int startColIndex = t_args->startColIndex;
-    int factor = t_args->factor;
+    int endColIndex = t_args->endColIndex;
 
     const std::vector<std::vector<std::vector<float>>> *imgMatrix = t_args->imgMatrix;
     const std::vector<std::vector<std::vector<float>>> *kernelMatrix = t_args->kernelMatrix;
     std::vector<std::vector<std::vector<float>>> *outputMatrix = t_args->outputMatrix;
-    Convolution3D<float>(imgMatrix, kernelMatrix, outputMatrix, kDepth, kHeight, kWidth, inDepth, inHeight, inWidth, startRowIndex, startColIndex, factor);
+    Convolution3D<float>(imgMatrix, kernelMatrix, outputMatrix, kDepth, kHeight, kWidth, inDepth, inHeight, inWidth, startRowIndex, endRowIndex, startColIndex, endColIndex);
 
     return NULL;
 }
 
 template <typename T>
-void MultiThreaded3DConvolution::Convolution3D(const std::vector<std::vector<std::vector<T>>> *imgMatrix, const std::vector<std::vector<std::vector<T>>> *kernelMatrix, std::vector<std::vector<std::vector<T>>> *outputMatrix, int kDepth, int kHeight, int kWidth, int inDepth, int inHeight, int inWidth, int startRowIndex, int startColIndex, int factor)
+void MultiThreaded3DConvolution::Convolution3D(const std::vector<std::vector<std::vector<T>>> *imgMatrix, const std::vector<std::vector<std::vector<T>>> *kernelMatrix, std::vector<std::vector<std::vector<T>>> *outputMatrix, int kDepth, int kHeight, int kWidth, int inDepth, int inHeight, int inWidth, int startRowIndex, int endRowIndex, int startColIndex, int endColIndex)
 {
     int depth, height, width;
     int padDepth = (kDepth-1)/2;
@@ -233,9 +264,9 @@ void MultiThreaded3DConvolution::Convolution3D(const std::vector<std::vector<std
 
     for(int i=0; i<inDepth; ++i)
     {
-        for(int j=startRowIndex; j<startRowIndex+factor; ++j)
+        for(int j=startRowIndex; j<endRowIndex; ++j)
         {
-            for(int k=startColIndex; k<startColIndex+factor; ++k)
+            for(int k=startColIndex; k<endColIndex; ++k)
             {
                 T sum = 0;
 
@@ -260,5 +291,4 @@ void MultiThreaded3DConvolution::Convolution3D(const std::vector<std::vector<std
             }
         }
     }
-
 }

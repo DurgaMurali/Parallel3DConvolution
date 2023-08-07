@@ -4,7 +4,10 @@ int ReadMatrix::findFileDatatype(std::string filename)
 {
     std::ifstream file(filename);
     if(!file)
+    {
         std::cout << "File not found" << std::endl;
+        return 0;
+    }
     std::string line;
     std::getline(file, line);
     int pos = line.find(",");
@@ -19,4 +22,5 @@ int ReadMatrix::findFileDatatype(std::string filename)
             return TYPE_INT;
 
     }
+    return 0;
 }

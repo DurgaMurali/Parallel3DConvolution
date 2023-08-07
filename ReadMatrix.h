@@ -18,10 +18,13 @@ public:
     template <typename T>
     void readMatrixFromFile(std::string filename, int height, int width, int depth, std::vector<std::vector<std::vector<T>>> &imgMatrix)
     {
-        std::cout<<"Reading Input" << std::endl;
+        //std::cout<<"Reading Input" << std::endl;
         std::ifstream file(filename);
         if(!file)
+        {
             std::cout << "File not found" << std::endl;
+            return;
+        }
         std::string line;
         int i = 0, j = 0, k = 0;
         
@@ -31,14 +34,14 @@ public:
 
             while(pos != std::string::npos)
             {
-                std::string value = line.substr(0, pos);
+                std::string val = line.substr(0, pos);
                 line.erase(0, pos+1);
                 pos = line.find(",");
      
                 if(std::is_same<T, int>::value)
-                    imgMatrix[k][i][j] = std::stoi(value);
+                    imgMatrix[k][i][j] = std::stoi(val);
                 else if(std::is_same<T, float>::value)
-                    imgMatrix[k][i][j] = std::stof(value);
+                    imgMatrix[k][i][j] = std::stof(val);
                 else
                     imgMatrix[k][i][j] = static_cast<T>(0);
 
@@ -58,12 +61,12 @@ public:
             if(!line.empty())
             {
                 pos = line.find("\n");
-                std::string value = line.substr(0, pos);
+                std::string val = line.substr(0, pos);
                 
                 if(std::is_same<T, int>::value)
-                    imgMatrix[k][i][j] = std::stoi(value);
+                    imgMatrix[k][i][j] = std::stoi(val);
                 else if(std::is_same<T, float>::value)
-                    imgMatrix[k][i][j] = std::stof(value);
+                    imgMatrix[k][i][j] = std::stof(val);
                 else
                     imgMatrix[k][i][j] = static_cast<T>(0);
 
@@ -88,10 +91,13 @@ public:
     template <typename T>
     void readMatrixFromFile(std::string filename, int size, T *imgMatrix)
     {
-        std::cout<<"Reading input" << std::endl;
+        //std::cout<<"Reading input" << std::endl;
         std::ifstream file(filename);
         if(!file)
+        {
             std::cout << "File not found" << std::endl;
+            return;
+        }
         std::string line;
         int index = 0;
         
@@ -101,14 +107,14 @@ public:
 
             while(pos != std::string::npos)
             {
-                std::string value = line.substr(0, pos);
+                std::string val = line.substr(0, pos);
                 line.erase(0, pos+1);
                 pos = line.find(",");
 
                 if(std::is_same<T, int>::value)
-                    imgMatrix[index] = std::stoi(value);
+                    imgMatrix[index] = std::stoi(val);
                 else if(std::is_same<T, float>::value)
-                    imgMatrix[index] = std::stof(value);
+                    imgMatrix[index] = std::stof(val);
                 else
                     imgMatrix[index] = static_cast<T>(0);
 
@@ -117,12 +123,12 @@ public:
             if(!line.empty())
             {
                 pos = line.find("\n");
-                std::string value = line.substr(0, pos);  
+                std::string val = line.substr(0, pos); 
 
                 if(std::is_same<T, int>::value)
-                    imgMatrix[index] = std::stoi(value);
+                    imgMatrix[index] = std::stoi(val);
                 else if(std::is_same<T, float>::value)
-                    imgMatrix[index] = std::stof(value);
+                    imgMatrix[index] = std::stof(val);
                 else
                     imgMatrix[index] = static_cast<T>(0);
                 
