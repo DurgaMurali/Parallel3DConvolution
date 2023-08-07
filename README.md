@@ -3,7 +3,7 @@
 ## Prerequisites
 >Install OpenCL runtime and SDK
 >
->Install Cygwin and MinGW on Windows
+>Install Cygwin, MinGW and GCC on Windows
 >
 ## Commands to compile
 >g++ Convolution.cpp Seq3DConv.cpp ReadMatrix.cpp -o conv.o
